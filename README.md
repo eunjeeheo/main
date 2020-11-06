@@ -188,6 +188,20 @@ promotion, store의 pom.xml 설정
 
 
 
+## CQRS 패턴
+
+사용자 View를 위한 프로모션 정보 조회 서비스를 위한 별도의 프로모션 정보 저장소를 구현
+
+- 이를 하여 기존 CQRS 서비스인 Customer 서비스를 활용
+- 모든 정보는 비동기 방식으로 호출한다.
+![DDD1어그리게잇](https://user-images.githubusercontent.com/73939028/98259530-998b6580-1fc5-11eb-8c5b-471ea0db62af.JPG)
+
+- Customer에 저장하는 서비스 정책 (PolicyHandler)구현
+![image](https://user-images.githubusercontent.com/73939028/98325832-0c7ef580-2033-11eb-8d12-66a7f47792ea.png)
+![게이트웨이2](https://user-images.githubusercontent.com/73939028/98325919-4b14b000-2033-11eb-8712-17b6a4227871.JPG)
+
+
+
 ## Gateway 적용
 
 gateway > applitcation.yml 설정
@@ -303,6 +317,8 @@ mvn spring-boot:run
 http get http://localhost:8081/orders/3     # NULL이었던 포인트가 가격에 따라 적립된 것을 확인
 ```
 ![비동기식호출_실행_서비스온](https://user-images.githubusercontent.com/73939028/98311424-bac67300-2012-11eb-9bb2-52f4aa42deef.JPG)
+
+
 
 # 운영
 

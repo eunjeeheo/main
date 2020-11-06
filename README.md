@@ -433,7 +433,7 @@ hystrix:
 - 10초 동안 실시
 
 ```
-siege -c10 -t10S -v --content-type "application/json" 'http://pay:8080/payments POST {"orderId": "380", "process":"OrderedCancelled"}'
+siege -c250 -t10S -v --content-type "application/json" 'http://pay:8080/payments POST {"orderId": "380", "process":"OrderedCancelled"}'
 ```
 - 부하 발생하여 CB가 발동하여 요청 실패처리하였고, promotion에서 밀린 부하가 처리되면서 다시 결제취소를 받기 시작 
 

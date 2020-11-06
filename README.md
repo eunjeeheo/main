@@ -437,11 +437,11 @@ siege -c10 -t10S -v --content-type "application/json" 'http://pay:8080/payments 
 ```
 - 부하 발생하여 CB가 발동하여 요청 실패처리하였고, promotion에서 밀린 부하가 처리되면서 다시 결제취소를 받기 시작 
 
-![서킷브레이킹1](https://user-images.githubusercontent.com/73939028/98321737-2adff380-2029-11eb-8ecb-64fe7086aa86.JPG)
+![서킷브레이킹성공1](https://user-images.githubusercontent.com/73939028/98332201-92a23880-2041-11eb-9dd8-4afd15bbe520.JPG)
 
 - report
 
-![서킷브레이킹2](https://user-images.githubusercontent.com/73939028/98321733-29aec680-2029-11eb-997e-80a965f1310b.JPG)
+![서킷브레이킹성공2](https://user-images.githubusercontent.com/73939028/98332203-93d36580-2041-11eb-8f4b-2a80ec9af49d.JPG)
 
 - CB 잘 적용됨을 확인
 

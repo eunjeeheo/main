@@ -130,7 +130,7 @@
 
 ## 헥사고날 아키텍처 다이어그램 도출 (Polyglot)
 
-![헥사고날아키텍처](https://user-images.githubusercontent.com/73939028/98255444-c426ef80-1fc0-11eb-9d13-cbf119086c2a.JPG)
+![헥사고날아키텍처2](https://user-images.githubusercontent.com/73939028/98322473-d3428780-202a-11eb-9f7c-050389bbc43a.JPG)
 
     - Chris Richardson, MSA Patterns 참고하여 Inbound adaptor와 Outbound adaptor를 구분함
     - 호출관계에서 PubSub 과 Req/Resp 를 구분함
@@ -197,7 +197,7 @@ gateway > applitcation.yml 설정
 gateway 테스트
 
 ```
-http POST http://gateway:8080/orders item=test qty=1
+http POST http://gateway:8080/orders item=a1 qty=1 price=10
 ```
 ![게이트웨이](https://user-images.githubusercontent.com/73939028/98310720-0a0ba400-2011-11eb-948a-e037b960ccec.JPG)
 
@@ -241,26 +241,25 @@ public interface PromotionService {
                 .promoCancel(promotion);
     }
 ```
-![동기식호출과폴백2](https://user-images.githubusercontent.com/73939028/98259667-c0499c00-1fc5-11eb-928c-0d49385d836c.JPG)
+![동기식호출+1](https://user-images.githubusercontent.com/73939028/98322951-05a0b480-202c-11eb-8c7e-30f7ec78abfe.JPG)
 
 - 동기식 호출이 적용되서 결제 시스템이 장애가 나면 결제취소도 못받는다는 것을 확인:
 
-![동기식호출과폴백2](https://user-images.githubusercontent.com/73939028/98311147-0593bb00-2012-11eb-9ec0-2fc16e789f3d.JPG)
 ```
 #프로모션(promotion) 서비스를 잠시 내려놓음
 
 #주문취소하기(order)
-http PATCH http://localhost:8081/orders/ status="cancel"   #Fail
+http PATCH http://localhost:8081/orders/5 status="cancel"   #Fail
 ```
 ![동기식호출과폴백_실행_서비스킬_결과](https://user-images.githubusercontent.com/73939028/98311214-32e06900-2012-11eb-8f73-7c5d963974e9.JPG)
 
 ```
-#결제(pay) 서비스 재기동
+#프로모션(promotion) 서비스 재기동
 cd pay
 mvn spring-boot:run
 
-#주문하기(order)
-http http://localhost:8081/orders item=note21 qty=2   #Success
+#주문취소하기(order)
+http PATCH http://localhost:8081/orders/5 status="cancel"   #Success
 ```
 ![동기식호출과폴백_실행_서비스온_결과](https://user-images.githubusercontent.com/73939028/98311224-3b38a400-2012-11eb-8beb-63888f064e60.JPG)
 
@@ -269,37 +268,39 @@ http http://localhost:8081/orders item=note21 qty=2   #Success
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 
 
 
-결제(pay)가 이루어진 후에 대리점(store)으로 이를 알려주는 행위는 비 동기식으로 처리하여 대리점(store)의 처리를 위하여 결제주문이 블로킹 되지 않아도록 처리한다.
+결제(pay)가 이루어진 후에 프로모션(promotion)으로 이를 알려주는 행위는 비 동기식으로 처리하여 프로모션(promotion)의 처리를 위하여 결제가 블로킹 되지 않아도록 처리한다.
  
 - 결제승인이 되었다(payCompleted)는 도메인 이벤트를 카프카로 송출한다(Publish)
  
-![비동기식호출1](https://user-images.githubusercontent.com/73939028/98259721-cf304e80-1fc5-11eb-8028-4105197596eb.JPG)
+![비동기식+1](https://user-images.githubusercontent.com/73939028/98323343-efdfbf00-202c-11eb-9c23-6c63f14730cf.JPG)
 
 
-- 대리점(store)에서는 결제승인(payCompleted) 이벤트에 대해서 이를 수신하여 자신의 정책을 처리하도록 PolicyHandler 를 구현한다.
-- 주문접수(OrderReceive)는 송출된 결제승인(payCompleted) 정보를 store의 Repository에 저장한다.:
+- 프로모션(promotion)에서는 결제승인(PayCompleted) 이벤트에 대해서 이를 수신하여 자신의 정책을 처리하도록 PolicyHandler 를 구현한다.
+- 포인트적립(Promote)는 송출된 결제승인(PayCompleted) 정보를 PromotionRepository에 저장한다.
  
 ![비동기식호출2](https://user-images.githubusercontent.com/73939028/98259725-d0617b80-1fc5-11eb-8c19-c7c63a1af939.JPG)
 
 
-대리점(store)시스템은 주문(app)/결제(pay)와 완전히 분리되어있으며(sync transaction 없음), 이벤트 수신에 따라 처리되기 때문에, 대리점(store)이 유지보수로 인해 잠시 내려간 상태라도 주문을 받는데 문제가 없다.(시간적 디커플링):
+프로모션(promotion)시스템은 주문(app)/결제(pay)와 완전히 분리되어있으며(sync transaction 없음), 이벤트 수신에 따라 처리되기 때문에, 프로모션(promotion)이 유지보수로 인해 잠시 내려간 상태라도 주문을 받는데 문제가 없다.(시간적 디커플링)
+
 ```
-# 대리점(store) 서비스를 잠시 내려놓음 (ctrl+c)
+#프로모션(promotion) 서비스를 잠시 내려놓음
 
 #주문하기(order)
-http http://localhost:8081/orders item=note30 qty=2  #Success
+http POST http://localhost:8081/orders item="iphone12pro" qty=1 price=1200  #Success
 
 #주문상태 확인
-http get http://localhost:8081/orders    # 상태값이 'Shipped'이 아닌 'Payed'에서 멈춤을 확인
+http GET http://localhost:8081/orders/3    # 포인트 정보가 업데이트되지 않고 NULL임을 확인
 ```
 ![비동기식호출_실행_서비스킬](https://user-images.githubusercontent.com/73939028/98311419-b8fcaf80-2012-11eb-8874-75e9f6fde50d.JPG)
+
 ```
-#대리점(store) 서비스 기동
-cd store
+#프로모션(promotion) 서비스 기동
+cd promotion
 mvn spring-boot:run
 
 #주문상태 확인
-http get http://localhost:8081/orders     # 'Payed' 였던 상태값이 'Shipped'로 변경된 것을 확인
+http get http://localhost:8081/orders/3     # NULL이었던 포인트가 가격에 따라 적립된 것을 확인
 ```
 ![비동기식호출_실행_서비스온](https://user-images.githubusercontent.com/73939028/98311424-bac67300-2012-11eb-9bb2-52f4aa42deef.JPG)
 
@@ -309,52 +310,56 @@ http get http://localhost:8081/orders     # 'Payed' 였던 상태값이 'Shipped
 
 - 네임스페이스 만들기
 ```
-kubectl create ns phone82
+kubectl create ns pp82
 kubectl get ns
 ```
 ![네임스페이스만들기](https://user-images.githubusercontent.com/73939028/98314252-ed736a00-2018-11eb-994c-9d47bb501b4e.JPG)
 
+
 - 폴더 만들기, 해당폴더로 이동
 ```
-mkdir phone82
-cd phone 82
+mkdir pp82
+cd pp82
 ```
 ![폴더만들기이동](https://user-images.githubusercontent.com/73939028/98314296-fd8b4980-2018-11eb-99ad-bdb082eb9c18.JPG)
 
+
 - 소스 가져오기
 ```
-git clone https://github.com/phone82/app.git
+git clone https://github.com/eunjeeheo/promotion.git
 ```
 ![소스가져오기](https://user-images.githubusercontent.com/73939028/98314294-fc5a1c80-2018-11eb-8420-0a07965e60af.JPG)
 
+
 - 빌드하기
 ```
-cd app
+cd promotion
 mvn package -Dmaven.test.skip=true
 ```
 ![빌드하기](https://user-images.githubusercontent.com/73939028/98314379-2f9cab80-2019-11eb-9992-8acbbfae91aa.JPG)
 
+
 - 도커라이징: Azure 레지스트리에 도커 이미지 푸시하기
 ```
-az acr build --registry admin02 --image admin02.azurecr.io/app:latest .
+az acr build --registry admin37 --image admin37.azurecr.io/app:latest .
 ```
 ![도커라이징](https://user-images.githubusercontent.com/73939028/98314255-ee0c0080-2018-11eb-9f03-174c0bf6fd6a.JPG)
 
+
 - 컨테이너라이징: 디플로이 생성 확인
 ```
-kubectl create deploy app --image=admin02.azurecr.io/app:latest -n phone82
-kubectl get all -n phone82
+kubectl create deploy promotion --image=admin37.azurecr.io/app:latest -n pp82
+kubectl get all -n pp82
 ```
 ![컨테이너라이징](https://user-images.githubusercontent.com/73939028/98314419-49d68980-2019-11eb-867a-7b4482afa15f.JPG)
 
+
 - 컨테이너라이징: 서비스 생성 확인
 ```
-kubectl expose deploy app --type="ClusterIP" --port=8080 -n phone82
-kubectl get all -n phone82
+kubectl expose deploy promotion --type="ClusterIP" --port=8080 -n pp82
+kubectl get all -n pp82
 ```
 ![컨테이너라이징_서비스생성](https://user-images.githubusercontent.com/73939028/98314424-4a6f2000-2019-11eb-8c36-c214f46bdc30.JPG)
-
-
 
 
 
@@ -380,7 +385,7 @@ kubectl apply -f kubernetes/deployment.yml
 
 * 서킷 브레이킹 프레임워크의 선택: Spring FeignClient + Hystrix 옵션을 사용하여 구현함
 
-시나리오는 단말앱(app)-->결제(pay) 시의 연결을 RESTful Request/Response 로 연동하여 구현이 되어있고, 결제 요청이 과도할 경우 CB 를 통하여 장애격리.
+시나리오는 결제(pay)-->프로모션(promotion) 취소의 연결을 RESTful Request/Response 로 연동하여 구현이 되어있고, 프로모션 요청이 과도할 경우 CB 를 통하여 장애격리.
 
 - Hystrix 를 설정:  요청처리 쓰레드에서 처리시간이 610 밀리가 넘어서기 시작하여 어느정도 유지되면 CB 회로가 닫히도록 (요청을 빠르게 실패처리, 차단) 설정
 ```
@@ -401,26 +406,26 @@ hystrix:
 * siege 툴 사용법:
 ```
  siege가 생성되어 있지 않으면:
- kubectl run siege --image=apexacme/siege-nginx -n phone82
+ kubectl run siege --image=apexacme/siege-nginx -n pp82
  siege 들어가기:
  kubectl exec -it pod/siege-5c7c46b788-x5qp5 -c siege -n pp82 -- /bin/bash
  siege 종료:
  Ctrl + C -> exit
 ```
 * 부하테스터 siege 툴을 통한 서킷 브레이커 동작 확인:
-- 동시사용자 100명
-- 60초 동안 실시
+- 동시사용자 10명
+- 10초 동안 실시
 
 ```
-siege -c10 -t10S -v --content-type "application/json" 'http://app:8080/orders POST {"item": "abc123", "qty":3}'
+siege -c10 -t10S -v --content-type "application/json" 'http://pay:8080/payments POST {"orderId": "380", "process":"OrderedCancelled"}'
 ```
-- 부하 발생하여 CB가 발동하여 요청 실패처리하였고, 밀린 부하가 pay에서 처리되면서 다시 order를 받기 시작 
+- 부하 발생하여 CB가 발동하여 요청 실패처리하였고, promotion에서 밀린 부하가 처리되면서 다시 결제취소를 받기 시작 
 
-![서킷브레이킹2](https://user-images.githubusercontent.com/73939028/98321733-29aec680-2029-11eb-997e-80a965f1310b.JPG)
+![서킷브레이킹1](https://user-images.githubusercontent.com/73939028/98321737-2adff380-2029-11eb-8ecb-64fe7086aa86.JPG)
 
 - report
 
-![서킷브레이킹1](https://user-images.githubusercontent.com/73939028/98321737-2adff380-2029-11eb-8ecb-64fe7086aa86.JPG)
+![서킷브레이킹2](https://user-images.githubusercontent.com/73939028/98321733-29aec680-2029-11eb-997e-80a965f1310b.JPG)
 
 - CB 잘 적용됨을 확인
 
@@ -442,7 +447,7 @@ kubectl autoscale deploy promotion --min=1 --max=10 --cpu-percent=20 -n pp82
 
 
 -
-- CB 에서 했던 방식대로 워크로드를 1분 동안 걸어준다.
+- 부하테스터 siege 툴을 통한 워크로드를 1분 동안 걸어준다.
 ```
 kubectl exec -it pod/siege-5c7c46b788-x5qp5 -c siege -n pp82 -- /bin/bash
 siege -c10 -t60S -r10 -v --content-type "application/json" 'http://gateway:8080/promotions'
@@ -459,7 +464,7 @@ kubectl get deploy promotion -w -n pp82
 - 어느정도 시간이 흐른 후 스케일 아웃이 벌어지는 것을 확인할 수 있다. max=10 
 - 부하를 줄이니 늘어난 스케일이 점점 줄어들었다.
 
-![오토스케일아웃4](https://user-images.githubusercontent.com/73939028/98313463-42ae7c00-2017-11eb-9410-22dbd1e902f4.JPG)
+![오토스케일아웃5](https://user-images.githubusercontent.com/73939028/98324382-6ed5f700-202f-11eb-91ac-0e4425ade9a8.JPG)
 
 
 
@@ -470,17 +475,21 @@ kubectl get deploy promotion -w -n pp82
 
 
 - seige 로 배포작업 직전에 워크로드를 모니터링 함.
+```
 siege -c10 -t60S -r10 -v --content-type "application/json" 'http://promotion:8080/promotions GET'
+```
+
+- readiness 옵션이 없는 경우 배포 중 서비스 요청처리 실패
 ```
 kubectl apply -f kubernetes/deployment_readiness.yml
 ```
-- readiness 옵션이 없는 경우 배포 중 서비스 요청처리 실패
-
 ![무정지재배포1](https://user-images.githubusercontent.com/73939028/98313516-5f4ab400-2017-11eb-9be9-6f8481ab680e.JPG)
 
 
 - deployment.yml에 readiness 옵션을 추가 
-
+```
+kubectl apply -f kubernetes/deployment.yml
+```
 ![무정지재배포2](https://user-images.githubusercontent.com/73939028/98313519-61147780-2017-11eb-850d-92bdcf772d68.JPG)
 
 - readiness적용된 deployment.yml 적용
@@ -499,7 +508,7 @@ kubectl set image deploy promotion promotion=admin37.azurecr.io/promotion:v4 -n 
 
 - Availability: 100.00 % 확인
 
-![무정지재배포1](https://user-images.githubusercontent.com/73939028/98313516-5f4ab400-2017-11eb-9be9-6f8481ab680e.JPG)
+![무정지재배포4](https://user-images.githubusercontent.com/73939028/98324570-f58ad400-202f-11eb-863f-e33130d57b9f.JPG)
 
 
 
@@ -525,23 +534,23 @@ kubectl create configmap apiurl --from-literal=url=http://promotion:8080 --from-
 ```
 ![컨피그맵_생성조회](https://user-images.githubusercontent.com/73939028/98313627-9a4ce780-2017-11eb-98cc-464d75d077ae.JPG)
 
-- 설정한 url로 주문 호출
+- 설정한 url로 프로모션 호출
 ```
-http http://pay:8080/payments
+http http://gateway:8080/promotions
 ```
 
 ![컨피그맵_url호출](https://user-images.githubusercontent.com/73939028/98313682-b6508900-2017-11eb-9fc5-0a3e365db2db.JPG)
 
 - configmap 삭제 후 app 서비스 재시작
 ```
-kubectl delete configmap apiurl -n phone82
-kubectl get pod/pay-875b546bc-9rfp5  -n pp82 -o yaml | kubectl replace --force -f-
+kubectl delete configmap apiurl -n pp82
+kubectl get pod/pay-875b546bc-77rd2  -n pp82 -o yaml | kubectl replace --force -f-
 ```
 ![컨피그맵_삭제](https://user-images.githubusercontent.com/73939028/98313671-b0f33e80-2017-11eb-8b5b-4ee59195ca9a.JPG)
 
 - configmap 삭제된 상태에서 주문 호출   
 ```
-http POST http://app:8080/orders item=dfdf2 qty=22
+http PATCH http://gateway:8080/payments process="OrderCancelled"
 ```
 
 ![컨피그맵_오류](https://user-images.githubusercontent.com/73939028/98313631-9caf4180-2017-11eb-9dfe-71629e275939.JPG)
@@ -550,7 +559,7 @@ http POST http://app:8080/orders item=dfdf2 qty=22
 
 ## Self-healing (Liveness Probe)
 
-- store 서비스 정상 확인
+- promotion 서비스 정상 확인
 
 ![셀프힐링1](https://user-images.githubusercontent.com/73939028/98313982-6c1bd780-2018-11eb-9a3a-b30aa843d3d2.JPG)
 
@@ -569,11 +578,11 @@ livenessProbe:
 ```
 ![셀프힐링2](https://user-images.githubusercontent.com/73939028/98314144-ba30db00-2018-11eb-89da-bf8fa9509571.JPG)
 
-- store pod에 liveness가 적용된 부분 확인
+- promotion pod에 liveness가 적용된 부분 확인
 
 ![셀프힐링3](https://user-images.githubusercontent.com/73939028/98313987-6d4d0480-2018-11eb-91fb-8c83bdefab7f.JPG)
 
-- store 서비스의 liveness가 발동되어 13번 retry 시도 한 부분 확인
+- promotion 서비스의 liveness가 발동되어 4번 retry 시도 한 부분 확인
 
 ![셀프힐링4](https://user-images.githubusercontent.com/73939028/98313988-6d4d0480-2018-11eb-9612-8be2563da67d.JPG)
 
